@@ -19,8 +19,18 @@ WriteMakefile(
     ) : ()),
     ($EUMM_VERSION >= 6.31 ? (
         LICENSE => 'perl',
-        EXTRA_META => "recommends:\n" .
-                      "    Test::Pod:                     1.18\n" .
-                      "    Test::Pod::Coverage:           1.04\n",
+    ) : ()),
+    ($EUMM_VERSION >= 6.4501 ? (
+        META_MERGE => {
+            recommends => {
+                # optional tests
+                'Test::Pod'              => 1.18,
+                'Test::Pod::Coverage'    => 1.04,
+            },
+            resources => {
+                repository => 'https://github.com/aferreira/cpan-Devel-Hide',
+            },
+        },       
     ) : ()),
 );
+

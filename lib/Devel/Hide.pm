@@ -5,7 +5,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.0008';
+our $VERSION = '0.0009';
 
 # blech! package variables
 use vars qw( @HIDDEN $VERBOSE );
@@ -101,7 +101,7 @@ sub _push_hidden {
 BEGIN {
 
     # unless @HIDDEN was user-defined elsewhere, set default
-    if ( !defined @HIDDEN && $ENV{DEVEL_HIDE_PM} ) {
+    if ( !@HIDDEN && $ENV{DEVEL_HIDE_PM} ) {
         _push_hidden( split q{ }, $ENV{DEVEL_HIDE_PM} );
 
         # NOTE. "split ' ', $s" is special. Read "perldoc -f split".

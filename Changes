@@ -1,5 +1,10 @@
 Revision history for Perl extension Devel::Hide.
 
+0.0009  Mon Jan 28 2013
+        - avoid "defined @HIDDEN" which generates
+          a warning since Perl 5.15.7 
+          CPAN RT #74225
+
 0.0008  Thu Nov 15 2007
         - no real code changes
         - make t/050child-processes.t less clever for
