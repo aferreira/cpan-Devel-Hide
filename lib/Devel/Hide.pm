@@ -1,4 +1,3 @@
-
 package Devel::Hide;
 
 use 5.006001;
@@ -368,7 +367,7 @@ Nothing is exported.
 DEVEL_HIDE_PM - if defined, the list of modules is added
    to the list of hidden modules
 
-DEVEL_HIDE_VERBOSE - on by default. If off, supresses
+DEVEL_HIDE_VERBOSE - on by default. If off, suppresses
    the initial message which shows the list of hidden modules
    in effect
 
