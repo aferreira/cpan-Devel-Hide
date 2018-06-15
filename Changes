@@ -1,7 +1,9 @@
 Revision history for Perl extension Devel::Hide.
 
-{{$NEXT}}
+0.0010      2018-06-15 09:12:54-07:00 America/Los_Angeles
 
+   - Makefile.PL: better prereqs declaration
+   - typo fix - from dsteinbrunner/patch-1
 
 0.0009    Mon Jan 28 2013
 

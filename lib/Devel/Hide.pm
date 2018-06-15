@@ -4,7 +4,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.0009';
+our $VERSION = '0.0010';
 
 # blech! package variables
 use vars qw( @HIDDEN $VERBOSE );
@@ -395,7 +395,7 @@ with contributions from David Cantrell E<lt>dcantrell@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2005-2007 by Adriano R. Ferreira
+Copyright (C) 2005-2007, 2018 by Adriano R. Ferreira
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
