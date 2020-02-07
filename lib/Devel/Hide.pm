@@ -175,6 +175,8 @@ sub import {
     while(@_ && $_[0] =~ /^-/) {
         if( $_[0] eq '-from:children' ) {
             $HIDE_FROM{children} = 1;
+        } elsif( $_[0] eq '-lexically' ) {
+            warn("-lexically not yet implemented\n");
         } elsif( $_[0] eq '-quiet' ) {
             $VERBOSE = 0;
             $HIDE_FROM{children_quietly} = 1;
@@ -323,7 +325,17 @@ list of modules:
 propagate the list of hidden modules to your
 process' child processes. This works by populating
 C<PERL5OPT>, and is incompatible with Taint mode, as
-explained in L<perlrun>.
+explained in L<perlrun>. Of course, this is unnecessary
+if your child processes are just forks of the current one.
+
+=item -lexically
+
+Everything following this will only have effect until the
+end of the current scope. Yes, that includes C<-quiet> and
+C<-from:children>. But note that -lexically does B<not>
+propagate into children. It can't, as options are effectively
+passed to child processes on their command line so are
+process-global.
 
 =item -quiet
 
