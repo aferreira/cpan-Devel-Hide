@@ -9,11 +9,20 @@ our $VERSION = '0.0010';
 # blech! package variables
 use vars qw( @HIDDEN $VERBOSE );
 
-# a map ( $hidden_file => 1 ) to speed determining if a module/file is hidden
-my %IS_HIDDEN;
+# yes, this is a ridiculous way of storing data. It is,
+# however, compatible with what we're going to have to
+# store in %^H for lexical hiding
+my %GLOBAL_SETTINGS = (
+    # an ampersand-separated list
+    'Devel::Hide/hidden_list' => '',
+    # ampersand-separated list of key:value pairs.
+    # there's no attempt to support data containing
+    # those magic chars
+    'Devel::Hide/settings'    => 'children:0&quiet:0',
+)
 
 # whether to hide modules from ...
-my %HIDE_FROM = ( 
+my %GLOBAL_HIDE_FROM = ( 
         children => 0, # child processes or not
 );
 
@@ -83,14 +92,14 @@ sub _push_hidden {
             push @too_late, $_;
         }
         else {
-            $IS_HIDDEN{$_}++;
+            $GLOBAL_SETTINGS{$_}++;
         }
     }
     if ( @too_late ) {
         warn __PACKAGE__, ': Too late to hide ', join( ', ', @too_late ), "\n";
     }
-    if ( $VERBOSE && keys %IS_HIDDEN ) {
-        warn __PACKAGE__, ' hides ', join( ', ', sort keys %IS_HIDDEN ), "\n";
+    if ( $VERBOSE && keys %GLOBAL_SETTINGS ) {
+        warn __PACKAGE__, ' hides ', join( ', ', sort keys %GLOBAL_SETTINGS ), "\n";
     }
 }
 
@@ -121,7 +130,7 @@ sub _dont_load {
 
 sub _is_hidden {
     my $filename = shift;
-    return $IS_HIDDEN{$filename};
+    return $GLOBAL_SETTINGS{$filename};
 }
 
 sub _inc_hook {
@@ -170,16 +179,47 @@ sub _append_to_perl5opt {
 
 }
 
+sub _get_setting {
+    my($whence, $name) = @_;
+    die("Can't get_setting '$whence': ")
+        unless($whence =~ /^(global|lexical)$/);
+    my $config = _config_type_to_config_ref($whence);
+
+    {
+        split(/[:&]/, $config->{'Devel::Hide/settings'})
+    }->{$name};
+}
+
+sub _config_type_to_config_ref {
+    shift eq 'global' ? \%GLOBAL_SETTINGS : \%^H
+}
+
+sub _set_setting {
+    my($whither, $name, $value) = @_;
+    die("Can't _set_setting '$whither': ")
+        unless($whither =~ /^(global|lexical)$/);
+    my $config = _config_type_to_config_ref($whence);
+
+    my %hash = (
+        split(/[:&]/, $config->{'Devel::Hide/settings'}),
+        $name => $value
+    );
+    $config->{'Devel::Hide/settings'} = join('&', map {
+        $_ => $hash{$_}
+    } keys %hash);
+}
+
 sub import {
     shift;
+    my $lexical = 0;
     while(@_ && $_[0] =~ /^-/) {
         if( $_[0] eq '-from:children' ) {
-            $HIDE_FROM{children} = 1;
+            $GLOBAL_HIDE_FROM{children} = 1;
         } elsif( $_[0] eq '-lexically' ) {
             warn("-lexically not yet implemented\n");
+            $lexical = 1;
         } elsif( $_[0] eq '-quiet' ) {
             $VERBOSE = 0;
-            $HIDE_FROM{children_quietly} = 1;
         } else {
             die("Devel::Hide: don't recognize $_[0]\n");
         }
@@ -187,9 +227,9 @@ sub import {
     }
     if (@_) {
         _push_hidden(@_);
-        if ($HIDE_FROM{children}) {
+        if ($GLOBAL_HIDE_FROM{children}) {
             _append_to_perl5opt(
-                ($HIDE_FROM{children_quietly} ? '-quiet' : ()),
+                ($VERBOSE == 0 ? '-quiet' : ()),
                 @_
             );
         }
@@ -210,7 +250,7 @@ perl -MDevel::Hide=M,!N -e script.pl  # hide all modules but N plus M
 
 how to implement
 
-%IS_HIDDEN
+%GLOBAL_SETTINGS
 %IS_EXCEPTION       if there is an exception, all but the set of exceptions are to be hidden
                            plus the set of hidden modules
 

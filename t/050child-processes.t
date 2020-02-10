@@ -1,6 +1,7 @@
 use strict;
 use warnings;
-use Devel::Hide qw(-quiet -from:children Q.pm R);
+use Devel::Hide qw(-quiet -from:children Q.pm);
+use Devel::Hide qw(-lexically -quiet -from:children R);
 
 # Mlib=t is to get around 'use lib' etc being annoying
 
