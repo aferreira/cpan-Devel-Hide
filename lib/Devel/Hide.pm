@@ -4,26 +4,32 @@ use 5.006001;
 use strict;
 use warnings;
 
+# # magic incantation to make %^H work before 5.10
+# $^H |= 0x20000;
+
 our $VERSION = '0.0010';
 
 # blech! package variables
-use vars qw( @HIDDEN $VERBOSE );
+use vars qw( @HIDDEN );
 
+# settings are a ampersand-separated list of key:value
+# pairs. there's no attempt to support data containing
+# those magic chars.
+#
+# The list of hidden modules is a comma (and *only* comma,
+# no white space, no quotes) separated list of module
+# names.
+#
 # yes, this is a ridiculous way of storing data. It is,
 # however, compatible with what we're going to have to
-# store in %^H for lexical hiding
-my %GLOBAL_SETTINGS = (
-    # an ampersand-separated list
-    'Devel::Hide/hidden_list' => '',
-    # ampersand-separated list of key:value pairs.
-    # there's no attempt to support data containing
-    # those magic chars
-    'Devel::Hide/settings'    => 'children:0&quiet:0',
-)
-
-# whether to hide modules from ...
-my %GLOBAL_HIDE_FROM = ( 
-        children => 0, # child processes or not
+# store in the hints hash for lexical hiding, as that
+# only supports string data.
+my %GLOBAL_SETTINGS;
+_set_setting('global', children => 0);
+_set_setting('global', verbose  =>
+  defined $ENV{DEVEL_HIDE_VERBOSE}
+    ? $ENV{DEVEL_HIDE_VERBOSE}
+    : 1
 );
 
 =begin private
@@ -66,23 +72,17 @@ sub _as_filenames {
     return map { /^(\w+::)*\w+$/ ? _to_filename($_) : $_ } @_;
 }
 
-BEGIN {
-
-    unless ( defined $VERBOSE ) { # unless user-defined elsewhere, set default
-        $VERBOSE
-            = defined $ENV{DEVEL_HIDE_VERBOSE} ? $ENV{DEVEL_HIDE_VERBOSE} : 1;
-    }
-
-}
-
 # Pushes a list to the set of hidden modules/filenames
 # warns about the modules which could not be hidden (always)
-# and about the ones that were successfully hidden (if $VERBOSE)
+# and about the ones that were successfully hidden (if verbose)
 #
 # It works as a batch producing warning messages
 # at each invocation (when appropriate).
 #
+# the first arg is a reference to the config hash to use,
+# either global or lexical
 sub _push_hidden {
+    my $config = shift;
 
     return unless @_;
 
@@ -92,58 +92,34 @@ sub _push_hidden {
             push @too_late, $_;
         }
         else {
-            $GLOBAL_SETTINGS{$_}++;
+            $config->{'Devel::Hide/hidden'} =
+              $config->{'Devel::Hide/hidden'}
+                ? join(',', $config->{'Devel::Hide/hidden'}, $_)
+                : $_;
         }
     }
     if ( @too_late ) {
         warn __PACKAGE__, ': Too late to hide ', join( ', ', @too_late ), "\n";
     }
-    if ( $VERBOSE && keys %GLOBAL_SETTINGS ) {
-        warn __PACKAGE__, ' hides ', join( ', ', sort keys %GLOBAL_SETTINGS ), "\n";
+    if ( _get_setting('verbose') && $config->{'Devel::Hide/hidden'}) {
+        no warnings 'uninitialized';
+        warn __PACKAGE__ . ' hides ' .
+            join(
+                ', ',
+                sort split(
+                    /,/, $config->{'Devel::Hide/hidden'}
+                )
+            ) . "\n";
     }
-}
-
-# $ENV{DEVEL_HIDE_PM} is split in ' '
-# as well as @HIDDEN it accepts Module::Module as well as File/Names.pm
-
-BEGIN {
-
-    # unless @HIDDEN was user-defined elsewhere, set default
-    if ( !@HIDDEN && $ENV{DEVEL_HIDE_PM} ) {
-        _push_hidden( split q{ }, $ENV{DEVEL_HIDE_PM} );
-
-        # NOTE. "split ' ', $s" is special. Read "perldoc -f split".
-    }
-    else {
-        _push_hidden(@HIDDEN);
-    }
-
-    # NOTE. @HIDDEN is not changed anymore
-
 }
 
 sub _dont_load {
     my $filename = shift;
-    my $hidden_by = $VERBOSE ? 'hidden' : 'hidden by ' . __PACKAGE__;
+    my $hidden_by = _get_setting('verbose')
+        ? 'hidden'
+        : 'hidden by ' . __PACKAGE__;
     die "Can't locate $filename in \@INC ($hidden_by)\n";
 }
-
-sub _is_hidden {
-    my $filename = shift;
-    return $GLOBAL_SETTINGS{$filename};
-}
-
-sub _inc_hook {
-    my ( $coderef, $filename ) = @_;
-    if ( _is_hidden($filename) ) {
-        return _dont_load($filename);    # stop right here, with error
-    }
-    else {
-        return undef;                    # go on with the search
-    }
-}
-
-use lib ( \&_inc_hook );
 
 =begin private
 
@@ -179,63 +155,148 @@ sub _append_to_perl5opt {
 
 }
 
-sub _get_setting {
-    my($whence, $name) = @_;
-    die("Can't get_setting '$whence': ")
-        unless($whence =~ /^(global|lexical)$/);
-    my $config = _config_type_to_config_ref($whence);
+sub _is_hidden {
+    my $module = shift;
 
-    {
-        split(/[:&]/, $config->{'Devel::Hide/settings'})
-    }->{$name};
+    +{
+        map { $_ => 1 }
+        map {
+            no warnings 'uninitialized';
+            split(',', _config_type_to_config_ref($_)->{'Devel::Hide/hidden'})
+        } qw(global lexical)
+    }->{$module};
 }
 
-sub _config_type_to_config_ref {
-    shift eq 'global' ? \%GLOBAL_SETTINGS : \%^H
+sub _get_setting {
+    my $name = shift;
+    _exists_setting('lexical', $name)
+        ? _get_setting_from('lexical', $name)
+        : _get_setting_from('global',  $name)
+}
+
+sub _get_setting_from {
+    my $source = _check_source(shift());
+    my $name = shift;
+
+    my $config = _config_type_to_config_ref($source);
+    _setting_hashref($config)->{$name};
+}
+
+sub _exists_setting {
+    my $source = _check_source(shift());
+    my $name = shift;
+    
+    my $config = _config_type_to_config_ref($source);
+    exists(_setting_hashref($config)->{$name});
 }
 
 sub _set_setting {
-    my($whither, $name, $value) = @_;
-    die("Can't _set_setting '$whither': ")
-        unless($whither =~ /^(global|lexical)$/);
-    my $config = _config_type_to_config_ref($whence);
+    my $source = _check_source(shift());
+    my($name, $value) = @_;
 
+    my $config = _config_type_to_config_ref($source);
     my %hash = (
-        split(/[:&]/, $config->{'Devel::Hide/settings'}),
+        %{_setting_hashref($config)},
         $name => $value
     );
-    $config->{'Devel::Hide/settings'} = join('&', map {
-        $_ => $hash{$_}
+    _config_type_to_config_ref($source, 'writeable')
+      ->{'Devel::Hide/settings'} = join('&', map {
+        "$_:$hash{$_}"
     } keys %hash);
+}
+
+sub _check_source {
+    my $source = shift;
+    (my $caller = (caller(0))[3]) =~ s/.*:://;
+    die("Can't $caller '$source': ")
+        unless($source=~ /^(global|lexical)$/);
+    $source;
+}
+
+sub _setting_hashref {
+    my $config = shift;
+    no warnings 'uninitialized';
+    +{ split(/[:&]/, $config->{'Devel::Hide/settings'}) };
+}
+
+sub _config_type_to_config_ref {
+    my $type = shift;
+    my $accessibility = shift || '';
+    if($type eq 'lexical') {
+        if($accessibility eq 'writeable') {
+            return \%^H;
+        } else {
+            my $depth = 1;
+            while(my @fields = caller($depth)) {
+                my $hints_hash = $fields[10];
+                if($hints_hash && grep { /^Devel::Hide\// } keys %{$hints_hash}) {
+                    # return a copy
+                    return { %{$hints_hash} };
+                }
+                $depth++;
+            }
+            return {};
+        }
+    } else {
+        return \%GLOBAL_SETTINGS;
+    }
 }
 
 sub import {
     shift;
-    my $lexical = 0;
+    my $which_config = 'global';
     while(@_ && $_[0] =~ /^-/) {
-        if( $_[0] eq '-from:children' ) {
-            $GLOBAL_HIDE_FROM{children} = 1;
-        } elsif( $_[0] eq '-lexically' ) {
-            warn("-lexically not yet implemented\n");
-            $lexical = 1;
+        if( $_[0] eq '-lexically' ) {
+            $which_config = 'lexical';
+        } elsif( $_[0] eq '-from:children' ) {
+            _set_setting($which_config, children => 1);
         } elsif( $_[0] eq '-quiet' ) {
-            $VERBOSE = 0;
+            _set_setting($which_config, verbose  => 0);
         } else {
             die("Devel::Hide: don't recognize $_[0]\n");
         }
         shift;
     }
     if (@_) {
-        _push_hidden(@_);
-        if ($GLOBAL_HIDE_FROM{children}) {
+        _push_hidden(
+            _config_type_to_config_ref($which_config, 'writeable'),
+            @_
+        );
+        if (_get_setting('children')) {
             _append_to_perl5opt(
-                ($VERBOSE == 0 ? '-quiet' : ()),
+                (_get_setting('verbose') ? () : '-quiet'),
                 @_
             );
         }
     }
-
 }
+
+# $ENV{DEVEL_HIDE_PM} is split in ' '
+# as well as @HIDDEN it accepts Module::Module as well as File/Names.pm
+BEGIN {
+    # unless @HIDDEN was user-defined elsewhere, set default
+    if ( !@HIDDEN && $ENV{DEVEL_HIDE_PM} ) {
+        # NOTE. "split ' ', $s" is special. Read "perldoc -f split".
+        _push_hidden(
+            _config_type_to_config_ref('global'),
+            split q{ }, $ENV{DEVEL_HIDE_PM}
+        );
+    }
+    else {
+        _push_hidden(
+            _config_type_to_config_ref('global'),
+            @HIDDEN
+        );
+    }
+}
+
+sub _inc_hook {
+    my ( $coderef, $filename ) = @_;
+    if ( _is_hidden($filename) ) { _dont_load($filename); }
+     else { return undef; }
+}
+
+use lib ( \&_inc_hook );
 
 # TO DO:
 # * write unimport() sub
