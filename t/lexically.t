@@ -1,6 +1,12 @@
 use strict;
 use warnings;
-use Test::More tests => 7;
+
+BEGIN {
+    require Test::More;
+    $] < 5.010
+        ? Test::More->import(skip_all => "perl too old")
+        : Test::More->import(tests => 7);
+}
 
 use lib 't';
 

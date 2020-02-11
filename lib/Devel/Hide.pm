@@ -4,9 +4,6 @@ use 5.006001;
 use strict;
 use warnings;
 
-# # magic incantation to make %^H work before 5.10
-# $^H |= 0x20000;
-
 our $VERSION = '0.0010';
 
 # blech! package variables
@@ -156,12 +153,12 @@ sub _append_to_perl5opt {
 }
 
 sub _is_hidden {
+    no warnings 'uninitialized';
     my $module = shift;
 
     +{
         map { $_ => 1 }
         map {
-            no warnings 'uninitialized';
             split(',', _config_type_to_config_ref($_)->{'Devel::Hide/hidden'})
         } qw(global lexical)
     }->{$module};
@@ -248,6 +245,9 @@ sub import {
     while(@_ && $_[0] =~ /^-/) {
         if( $_[0] eq '-lexically' ) {
             $which_config = 'lexical';
+            if($] < 5.010) {
+                die("Can't 'use Devel::Hide qw(-lexically ...)' on perl 5.8 and below\n");
+            }
         } elsif( $_[0] eq '-from:children' ) {
             _set_setting($which_config, children => 1);
         } elsif( $_[0] eq '-quiet' ) {
@@ -430,6 +430,9 @@ explained in L<perlrun>. Of course, this is unnecessary
 if your child processes are just forks of the current one.
 
 =item -lexically
+
+This is only available on perl 5.10.0 and later. It is a fatal
+error to try to use it on an older perl.
 
 Everything following this will only have effect until the
 end of the current scope. Yes, that includes C<-quiet> and
