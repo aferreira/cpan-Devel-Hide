@@ -5,7 +5,7 @@ BEGIN {
     require Test::More;
     $] < 5.010
         ? Test::More->import(skip_all => "perl too old")
-        : Test::More->import(tests => 7);
+        : Test::More->import(tests => 9);
 }
 
 use lib 't';
@@ -37,6 +37,10 @@ like($@, qr/^Can't locate R\.pm in \@INC/,
     eval { require Q }; 
     like($@, qr/^Can't locate Q\.pm in \@INC/,
         "correctly moaned about loading Q");
+
+    eval { require R }; 
+    like($@, qr/^Can't locate R\.pm in \@INC/,
+        "still can't load R which is globally hidden");
 }
 
 {
@@ -52,3 +56,7 @@ note("Now we're outside that lexical scope");
 
 eval { require Q };
 ok(!$@, "nothing moaned about loading Q");
+
+eval { require R }; 
+like($@, qr/^Can't locate R\.pm in \@INC/,
+    "still can't load R");
