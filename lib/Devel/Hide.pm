@@ -11,16 +11,13 @@ our $VERSION = '0.0011';
 # blech! package variables
 use vars qw( @HIDDEN );
 
-# settings are serialised using Data::Dumper
-#
-# The list of hidden modules is a comma (and *only* comma,
-# no white space, no quotes) separated list of module
-# names.
+# settings and hidden list are serialised using Data::Dumper
 #
 # yes, this is a ridiculous way of storing data. It is,
 # however, compatible with what we're going to have to
 # store in the hints hash for lexical hiding, as that
 # only supports string data.
+our $VAR1; # Data::Dumper noise
 my %GLOBAL_SETTINGS;
 _set_setting('global', children => 0);
 _set_setting('global', verbose  =>
@@ -90,23 +87,18 @@ sub _push_hidden {
         }
         else {
             $config->{'Devel::Hide/hidden'} =
-              $config->{'Devel::Hide/hidden'}
-                ? join(',', $config->{'Devel::Hide/hidden'}, $_)
-                : $_;
+                Data::Dumper::Dumper([
+                    @{ _hidden_arrayref($config) },
+                    $_
+                ]);
         }
     }
     if ( @too_late ) {
         warn __PACKAGE__, ': Too late to hide ', join( ', ', @too_late ), "\n";
     }
-    if ( _get_setting('verbose') && $config->{'Devel::Hide/hidden'}) {
-        no warnings 'uninitialized';
+    if ( _get_setting('verbose') && @{ _hidden_arrayref($config) } ) {
         warn __PACKAGE__ . ' hides ' .
-            join(
-                ', ',
-                sort split(
-                    /,/, $config->{'Devel::Hide/hidden'}
-                )
-            ) . "\n";
+            join(', ', @{ _hidden_arrayref($config) }) . "\n";
     }
 }
 
@@ -153,13 +145,12 @@ sub _append_to_perl5opt {
 }
 
 sub _is_hidden {
-    no warnings 'uninitialized';
     my $module = shift;
 
     +{
         map { $_ => 1 }
         map {
-            split(',', _config_type_to_config_ref($_)->{'Devel::Hide/hidden'})
+            @{ _hidden_arrayref(_config_type_to_config_ref($_)) }
         } qw(global lexical)
     }->{$module};
 }
@@ -208,11 +199,16 @@ sub _check_source {
     $source;
 }
 
+sub _hidden_arrayref {
+    my $hidden = shift->{'Devel::Hide/hidden'};
+    $hidden ||= '[]';
+    eval $hidden;
+}
+
 sub _setting_hashref {
     my $settings = shift->{'Devel::Hide/settings'};
-    no warnings 'uninitialized';
-    $settings ||= '$VAR1 = {}';
-    eval "my $settings";
+    $settings ||= '{}';
+    eval $settings;
 }
 
 sub _config_type_to_config_ref {
