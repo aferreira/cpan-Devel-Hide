@@ -447,6 +447,16 @@ is in effect.
 
 =back
 
+=head2 COMPATIBILITY
+
+At some point global hiding may B<go away> and only lexical
+hiding be supported. There will be at least a two year
+deprecation cycle before that happens. At that point support
+for perl versions earlier than 5.10 will also be dropped.
+
+You are strongly encouraged to only use lexical hiding and to
+update existing code.
+
 =head2 CAVEATS
 
 There is some interaction between C<lib> and this module
