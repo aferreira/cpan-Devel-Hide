@@ -9,9 +9,9 @@ our $VERSION = '0.0011';
 # blech! package variables
 use vars qw( @HIDDEN );
 
-# settings are a ampersand-separated list of key:value
-# pairs. there's no attempt to support data containing
-# those magic chars.
+# settings are a comma- (and only comma, no quotes or spaces)
+# -separated list of key,value,key,value,... There is no
+# attempt to support data containing commas.
 #
 # The list of hidden modules is a comma (and *only* comma,
 # no white space, no quotes) separated list of module
@@ -197,9 +197,7 @@ sub _set_setting {
         $name => $value
     );
     _config_type_to_config_ref($source, 'writeable')
-      ->{'Devel::Hide/settings'} = join('&', map {
-        "$_:$hash{$_}"
-    } keys %hash);
+      ->{'Devel::Hide/settings'} = join(',', %hash);
 }
 
 sub _check_source {
@@ -211,9 +209,9 @@ sub _check_source {
 }
 
 sub _setting_hashref {
-    my $config = shift;
+    my $settings = shift->{'Devel::Hide/settings'};
     no warnings 'uninitialized';
-    +{ split(/[:&]/, $config->{'Devel::Hide/settings'}) };
+    +{ split(/,/, $settings) };
 }
 
 sub _config_type_to_config_ref {
