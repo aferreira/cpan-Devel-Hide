@@ -4,14 +4,14 @@ use 5.006001;
 use strict;
 use warnings;
 
+use Data::Dumper ();
+
 our $VERSION = '0.0011';
 
 # blech! package variables
 use vars qw( @HIDDEN );
 
-# settings are a comma- (and only comma, no quotes or spaces)
-# -separated list of key,value,key,value,... There is no
-# attempt to support data containing commas.
+# settings are serialised using Data::Dumper
 #
 # The list of hidden modules is a comma (and *only* comma,
 # no white space, no quotes) separated list of module
@@ -197,7 +197,7 @@ sub _set_setting {
         $name => $value
     );
     _config_type_to_config_ref($source, 'writeable')
-      ->{'Devel::Hide/settings'} = join(',', %hash);
+      ->{'Devel::Hide/settings'} = Data::Dumper::Dumper(\%hash);
 }
 
 sub _check_source {
@@ -211,7 +211,8 @@ sub _check_source {
 sub _setting_hashref {
     my $settings = shift->{'Devel::Hide/settings'};
     no warnings 'uninitialized';
-    +{ split(/,/, $settings) };
+    $settings ||= '$VAR1 = {}';
+    eval "my $settings";
 }
 
 sub _config_type_to_config_ref {
