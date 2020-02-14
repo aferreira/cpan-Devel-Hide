@@ -4,20 +4,23 @@ use 5.006001;
 use strict;
 use warnings;
 
-use Data::Dumper ();
-
 our $VERSION = '0.0011';
 
 # blech! package variables
 use vars qw( @HIDDEN );
 
-# settings and hidden list are serialised using Data::Dumper
+# settings are a comma- (and only comma, no quotes or spaces)
+# -separated list of key,value,key,value,... There is no
+# attempt to support data containing commas.
 #
+# The list of hidden modules is a comma (and *only* comma,
+# no white space, no quotes) separated list of module
+# names.
+# 
 # yes, this is a ridiculous way of storing data. It is,
 # however, compatible with what we're going to have to
 # store in the hints hash for lexical hiding, as that
 # only supports string data.
-our $VAR1; # Data::Dumper noise
 my %GLOBAL_SETTINGS;
 _set_setting('global', children => 0);
 _set_setting('global', verbose  =>
@@ -87,18 +90,23 @@ sub _push_hidden {
         }
         else {
             $config->{'Devel::Hide/hidden'} =
-                Data::Dumper::Dumper([
-                    @{ _hidden_arrayref($config) },
-                    $_
-                ]);
+              $config->{'Devel::Hide/hidden'}
+                ? join(',', $config->{'Devel::Hide/hidden'}, $_)
+                : $_;
         }
     }
     if ( @too_late ) {
         warn __PACKAGE__, ': Too late to hide ', join( ', ', @too_late ), "\n";
     }
-    if ( _get_setting('verbose') && @{ _hidden_arrayref($config) } ) {
+    if ( _get_setting('verbose') && $config->{'Devel::Hide/hidden'}) {
+        no warnings 'uninitialized';
         warn __PACKAGE__ . ' hides ' .
-            join(', ', @{ _hidden_arrayref($config) }) . "\n";
+            join(
+                ', ',
+                sort split(
+                    /,/, $config->{'Devel::Hide/hidden'}
+                )
+            ) . "\n";
     }
 }
 
@@ -145,12 +153,13 @@ sub _append_to_perl5opt {
 }
 
 sub _is_hidden {
+    no warnings 'uninitialized';
     my $module = shift;
 
     +{
         map { $_ => 1 }
         map {
-            @{ _hidden_arrayref(_get_config_ref($_)) }
+            split(',', _get_config_ref($_)->{'Devel::Hide/hidden'})
         } qw(global lexical)
     }->{$module};
 }
@@ -185,19 +194,13 @@ sub _set_setting {
         $name => $value
     );
     _get_config_ref($source, 'writeable')
-      ->{'Devel::Hide/settings'} = Data::Dumper::Dumper(\%hash);
-}
-
-sub _hidden_arrayref {
-    my $hidden = shift->{'Devel::Hide/hidden'};
-    $hidden ||= '[]';
-    eval $hidden;
+      ->{'Devel::Hide/settings'} = join(',', %hash);
 }
 
 sub _setting_hashref {
     my $settings = shift->{'Devel::Hide/settings'};
-    $settings ||= '{}';
-    eval $settings;
+    no warnings 'uninitialized';
+    +{ split(/,/, $settings) };
 }
 
 sub _get_config_ref {
