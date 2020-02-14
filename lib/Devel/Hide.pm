@@ -150,7 +150,7 @@ sub _is_hidden {
     +{
         map { $_ => 1 }
         map {
-            @{ _hidden_arrayref(_config_type_to_config_ref($_)) }
+            @{ _hidden_arrayref(_get_config_ref($_)) }
         } qw(global lexical)
     }->{$module};
 }
@@ -163,40 +163,29 @@ sub _get_setting {
 }
 
 sub _get_setting_from {
-    my $source = _check_source(shift());
-    my $name = shift;
+    my($source, $name) = @_;
 
-    my $config = _config_type_to_config_ref($source);
+    my $config = _get_config_ref($source);
     _setting_hashref($config)->{$name};
 }
 
 sub _exists_setting {
-    my $source = _check_source(shift());
-    my $name = shift;
+    my($source, $name) = @_;
     
-    my $config = _config_type_to_config_ref($source);
+    my $config = _get_config_ref($source);
     exists(_setting_hashref($config)->{$name});
 }
 
 sub _set_setting {
-    my $source = _check_source(shift());
-    my($name, $value) = @_;
+    my($source, $name, $value) = @_;
 
-    my $config = _config_type_to_config_ref($source);
+    my $config = _get_config_ref($source);
     my %hash = (
         %{_setting_hashref($config)},
         $name => $value
     );
-    _config_type_to_config_ref($source, 'writeable')
+    _get_config_ref($source, 'writeable')
       ->{'Devel::Hide/settings'} = Data::Dumper::Dumper(\%hash);
-}
-
-sub _check_source {
-    my $source = shift;
-    (my $caller = (caller(0))[3]) =~ s/.*:://;
-    die("Can't $caller '$source': ")
-        unless($source=~ /^(global|lexical)$/);
-    $source;
 }
 
 sub _hidden_arrayref {
@@ -211,7 +200,7 @@ sub _setting_hashref {
     eval $settings;
 }
 
-sub _config_type_to_config_ref {
+sub _get_config_ref {
     my $type = shift;
     my $accessibility = shift || '';
     if($type eq 'lexical') {
@@ -254,7 +243,7 @@ sub import {
     }
     if (@_) {
         _push_hidden(
-            _config_type_to_config_ref($which_config, 'writeable'),
+            _get_config_ref($which_config, 'writeable'),
             @_
         );
         if (_get_setting('children')) {
@@ -273,13 +262,13 @@ BEGIN {
     if ( !@HIDDEN && $ENV{DEVEL_HIDE_PM} ) {
         # NOTE. "split ' ', $s" is special. Read "perldoc -f split".
         _push_hidden(
-            _config_type_to_config_ref('global'),
+            _get_config_ref('global'),
             split q{ }, $ENV{DEVEL_HIDE_PM}
         );
     }
     else {
         _push_hidden(
-            _config_type_to_config_ref('global'),
+            _get_config_ref('global'),
             @HIDDEN
         );
     }
