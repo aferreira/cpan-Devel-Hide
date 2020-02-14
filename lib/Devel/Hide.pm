@@ -29,44 +29,13 @@ _set_setting('global', verbose  =>
     : 1
 );
 
-=begin private
-
-=item B<_to_filename>
-
-    $fn = _to_filename($pm);
-
-Turns a Perl module name (like 'A' or 'P::Q') into
-a filename ("A.pm", "P/Q.pm").
-
-=end private
-
-=cut
-
-sub _to_filename {
-    my $pm = shift;
-    $pm =~ s|::|/|g;
-    $pm .= '.pm';
-    return $pm;
-}
-
-=begin private
-
-=item B<_as_filenames>
-
-    @fn = _as_filenames(@args);
-    @fn = _as_filenames(qw(A.pm X B/C.pm File::Spec)); # returns qw(A.pm X.pm B/C.pm File/Spec.pm)
-
-Copies the argument list, turning what looks like
-a Perl module name to filenames and leaving everything
-else as it is. To look like a Perl module name is
-to match C< /^(\w+::)*\w+$/ >.
-
-=end private
-
-=cut
-
+# convert a mixed list of modules and filenames to a list of
+# filenames
 sub _as_filenames {
-    return map { /^(\w+::)*\w+$/ ? _to_filename($_) : $_ } @_;
+    return map { /^(\w+::)*\w+$/
+        ? do { my $f = "$_.pm"; $f =~ s|::|/|g; $f }
+        : $_
+    } @_;
 }
 
 # Pushes a list to the set of hidden modules/filenames
