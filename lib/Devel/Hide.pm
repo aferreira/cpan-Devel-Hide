@@ -290,6 +290,8 @@ Devel::Hide - Forces the unavailability of specified Perl modules (for testing)
 
 =head1 SYNOPSIS
 
+    # hide modules globally, across the entire process
+
     use Devel::Hide qw(Module/ToHide.pm);
     require Module::ToHide; # fails 
 
@@ -297,19 +299,46 @@ Devel::Hide - Forces the unavailability of specified Perl modules (for testing)
     require Test::More; # ok
     use Test::Pod 1.18; # fails
 
+    # hide modules lexically
+    {
+        use Devel::Hide qw(-lexically Foo::Bar);
+        # this will fail to load
+        eval 'use Foo::Bar';
+    }
+    # but this will load
+    use Foo::Bar;
+
 Other common usage patterns:
 
     $ perl -MDevel::Hide=Module::ToHide Makefile.PL
+    $ perl -MDevel::Hide=Module::ToHide,Test::Pod Makefile.PL
 
-    bash$ PERL5OPT=MDevel::Hide
-    bash$ DEVEL_HIDE_PM='Module::Which Test::Pod'
-    bash$ export PERL5OPT DEVEL_HIDE_PM
-    bash$ perl Makefile.PL
+    $ PERL5OPT=-MDevel::Hide
+    $ DEVEL_HIDE_PM='Module::ToHide Test::Pod'
+    $ export PERL5OPT DEVEL_HIDE_PM
+    $ perl Makefile.PL
 
-outputs (like blib)
+=head1 COMPATIBILITY
 
-    Devel::Hide hides Module::Which, Test::Pod, etc.
+=over
 
+=item global hiding
+
+At some point global hiding may B<go away> and only lexical
+hiding be supported. There will be at least a two year
+deprecation cycle before that happens.
+
+You are strongly encouraged to only use lexical hiding and to
+update existing code.
+
+=item perl 5.6
+
+Support will be dropped at some point after 2022-01-01 with no
+further warning. This is because bugs in older perls prevent
+some code improvements. See commit dd27e50 in the repository
+if you care to know what those are.
+
+=back
 
 =head1 DESCRIPTION
 
@@ -358,17 +387,23 @@ the hidden list:
 
 =over 4
 
-=item * 
+=item import()
 
-setting @Devel::Hide::HIDDEN
+this is probably the most commonly used method, called automagically
+when you do this:
 
-=item * 
+    use Devel::Hide qw(Foo Bar::Baz);
 
-environment variable DEVEL_HIDE_PM
+or
 
-=item * 
+    perl -MDevel::Hide=...
 
-import()
+=item setting @Devel::Hide::HIDDEN
+
+=item environment variable DEVEL_HIDE_PM
+
+both of these two only support 'global' hiding, whereas C<import()>
+supports lexical hiding as well.
 
 =back
 
@@ -393,8 +428,15 @@ error to try to use it on an older perl.
 Everything following this will only have effect until the
 end of the current scope. Yes, that includes C<-quiet>.
 
-Exactly what is hidden from child processes if C<-from:children>
-is in use as well is currently undefined. Sorry.
+=over
+
+=item bug
+
+If C<-from:children> is in effect then anything that is ever
+hidden lexically will be hidden from all child processes without
+regard for scope. Sorry.
+
+=back
 
 =begin private
 
@@ -412,17 +454,7 @@ is in effect.
 
 =back
 
-=head2 COMPATIBILITY
-
-At some point global hiding may B<go away> and only lexical
-hiding be supported. There will be at least a two year
-deprecation cycle before that happens. At that point support
-for perl versions earlier than 5.10 will also be dropped.
-
-You are strongly encouraged to only use lexical hiding and to
-update existing code.
-
-=head2 CAVEATS
+=head1 CAVEATS
 
 There is some interaction between C<lib> and this module
 
@@ -431,7 +463,9 @@ There is some interaction between C<lib> and this module
 
 In this case, 'my_lib' enters the include path before
 the Devel::Hide hook and if F<Module/ToHide.pm> is found
-in 'my_lib', it succeeds.
+in 'my_lib', it succeeds. More generally, any code that
+adds anything to the front of the C<@INC> list after
+Devel::Hide is loaded will have this effect.
 
 Also for modules that were loaded before Devel::Hide,
 C<require> and C<use> succeeds.
@@ -441,11 +475,9 @@ Since 0.0005, Devel::Hide warns about modules already loaded.
     $ perl -MDevel::Hide=Devel::Hide -e ''
     Devel::Hide: Too late to hide Devel/Hide.pm
 
-
-=head2 EXPORTS
+=head1 EXPORTS
 
 Nothing is exported.
-
 
 =head1 ENVIRONMENT VARIABLES
 
@@ -458,18 +490,15 @@ DEVEL_HIDE_VERBOSE - on by default. If off, suppresses
 
 PERL5OPT - used if you specify '-from:children'
 
-
 =head1 SEE ALSO
 
 L<perldoc -f require> 
 
 L<Test::Without::Module>
 
-
 =head1 BUGS
 
 Please report bugs via CPAN RT L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Devel-Hide>.
-
 
 =head1 AUTHORS
 
