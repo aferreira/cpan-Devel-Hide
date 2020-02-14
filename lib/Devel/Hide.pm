@@ -419,11 +419,18 @@ This is only available on perl 5.10.0 and later. It is a fatal
 error to try to use it on an older perl.
 
 Everything following this will only have effect until the
-end of the current scope. Yes, that includes C<-quiet> and
-C<-from:children>. But note that -lexically does B<not>
-propagate into children. It can't, as options are effectively
-passed to child processes on their command line so are
-process-global.
+end of the current scope. Yes, that includes C<-quiet>.
+
+Exactly what is hidden from child processes if C<-from:children>
+is in use as well is currently undefined. Sorry.
+
+=begin private
+
+PERL5OPT is populated globally even when -lexically is in use.
+How can its value be lexicalised? Or how can all the various ways
+of spawning a child be lexicalised?
+
+=end private
 
 =item -quiet
 
