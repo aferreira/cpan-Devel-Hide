@@ -2,6 +2,11 @@
 *.bak
 *.swp
 *.orig
+MYMETA.json
+MYMETA.yml
+Makefile
+blib/
+pm_to_blib
 /local/
 #/Devel-Hide-*.tar.gz
 #/Devel-Hide-*/
