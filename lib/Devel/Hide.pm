@@ -325,7 +325,8 @@ Other common usage patterns:
 =item global hiding
 
 At some point global hiding may B<go away> and only lexical
-hiding be supported. There will be at least a two year
+hiding be supported. At that point support for perl versions
+below 5.10 will be dropped. There will be at least a two year
 deprecation cycle before that happens.
 
 You are strongly encouraged to only use lexical hiding and to
@@ -428,16 +429,6 @@ error to try to use it on an older perl.
 Everything following this will only have effect until the
 end of the current scope. Yes, that includes C<-quiet>.
 
-=over
-
-=item bug
-
-If C<-from:children> is in effect then anything that is ever
-hidden lexically will be hidden from all child processes without
-regard for scope. Sorry.
-
-=back
-
 =begin private
 
 PERL5OPT is populated globally even when -lexically is in use.
@@ -498,14 +489,24 @@ L<Test::Without::Module>
 
 =head1 BUGS
 
-Please report bugs via CPAN RT L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Devel-Hide>.
+=over
+
+=item bug
+
+C<-from:children> and C<-lexically> don't like each other.  Anything
+hidden lexically may be hidden from all child processes without
+regard for scope. Don't use them together.
+
+=back
+
+Please report any other bugs you find via CPAN RT
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Devel-Hide>.
 
 =head1 AUTHORS
 
 Adriano R. Ferreira, E<lt>ferreira@cpan.orgE<gt>
 
 with contributions from David Cantrell E<lt>dcantrell@cpan.orgE<gt>
-
 
 =head1 COPYRIGHT AND LICENSE
 
