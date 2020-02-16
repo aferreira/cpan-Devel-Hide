@@ -7,7 +7,13 @@ use warnings;
 our $VERSION = '0.0012';
 
 # blech! package variables
-use vars qw( @HIDDEN );
+#
+# @HIDDEN is one of the ways to populate the global hidden list
+# $phase is used to identify which version of the hints hash to
+#   use - either %^H when we're updating it, or pulling it out
+#   of caller() when we want to read it
+use vars qw( @HIDDEN $phase );
+BEGIN { $phase = 'runtime'; }
 
 # settings are a comma- (and only comma, no quotes or spaces)
 # -separated list of key,value,key,value,... There is no
@@ -162,7 +168,7 @@ sub _set_setting {
         %{_setting_hashref($config)},
         $name => $value
     );
-    _get_config_ref($source, 'writeable')
+    _get_config_ref($source)
       ->{'Devel::Hide/settings'} = join(',', %hash);
 }
 
@@ -174,9 +180,8 @@ sub _setting_hashref {
 
 sub _get_config_ref {
     my $type = shift;
-    my $accessibility = shift || '';
     if($type eq 'lexical') {
-        if($accessibility eq 'writeable') {
+        if($phase eq 'compile') {
             return \%^H;
         } else {
             my $depth = 1;
@@ -198,6 +203,7 @@ sub _get_config_ref {
 sub import {
     shift;
     my $which_config = 'global';
+    local $phase = 'compile';
     while(@_ && $_[0] =~ /^-/) {
         if( $_[0] eq '-lexically' ) {
             $which_config = 'lexical';
@@ -215,7 +221,7 @@ sub import {
     }
     if (@_) {
         _push_hidden(
-            _get_config_ref($which_config, 'writeable'),
+            _get_config_ref($which_config),
             @_
         );
         if (_get_setting('children')) {

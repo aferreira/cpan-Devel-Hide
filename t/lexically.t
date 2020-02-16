@@ -16,8 +16,12 @@ BEGIN {
         'Devel::Hide hides R.pm',
         'Devel::Hide hides Q.pm';
     $SIG{__WARN__} = sub {
-        ok($_[0] eq shift(@expected_warnings)."\n",
-            "got expected warning: $_[0]");
+        if(!@expected_warnings) {
+            fail("Got unexpected warning '$_[0]'")
+        } else {
+            is($_[0], shift(@expected_warnings)."\n",
+                "got expected warning: $_[0]");
+        }
     }
 }
 END { ok(!@expected_warnings, "got all expected warnings") }
@@ -25,7 +29,7 @@ END { ok(!@expected_warnings, "got all expected warnings") }
 # hide R globally
 use Devel::Hide qw(R);
 note("R hidden globally, and noisily");
- 
+
 eval { require R }; 
 like($@, qr/^Can't locate R\.pm in \@INC/,
     "correctly moaned about hiding R (globally)");
