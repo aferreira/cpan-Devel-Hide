@@ -1,5 +1,5 @@
 
-use 5.006001;
+use 5.008;
 use ExtUtils::MakeMaker;
 
 my $EUMM_VERSION = $ExtUtils::MakeMaker::VERSION;
